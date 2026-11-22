@@ -1,0 +1,16 @@
+{
+  "name": "mesa-para-dos",
+  "private": true,
+  "type": "module",
+  "description": "Restaurantes y cafeterías calificados en pareja.",
+  "scripts": {
+    "dev": "node scripts/dev.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@upstash/redis": "1.41.0",
+    "@vercel/blob": "2.9.0"
+  }
+}

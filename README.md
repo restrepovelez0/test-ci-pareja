@@ -1,11 +1,48 @@
-# Test de CI en pareja
+# Mesa para Dos
 
-Test de razonamiento original, en español, para jugar cada persona en su propio teléfono y comparar resultados.
+Web para calificar en pareja restaurantes y cafeterías de Medellín: lugares con zona y precio, reseñas de cada uno por criterio (sabor, servicio, ambiente, precio-calidad), fotos, mapa por zonas, ranking y lista de lugares por probar. Modo claro y oscuro, responsive.
 
-- **Estándar:** 30 preguntas, 30 minutos.
-- **Avanzada:** 50 preguntas más difíciles, 60 minutos.
-- Cuatro áreas: numérico, verbal, lógico y visual.
-- Guarda el resultado en el ranking (nombre, puntaje, tiempo y aciertos), ordenado del mejor al peor.
-- Se puede enviar el resultado a otra persona con un código o un enlace.
+- **Frontend:** un solo `index.html`, sin compilación.
+- **Datos:** Upstash Redis (lugares, reseñas y fotos guardados como hashes `mesa:*`).
+- **Fotos:** Vercel Blob. El navegador las reduce a 1600 px antes de subirlas.
+- **Acceso:** una clave compartida (`APP_PIN`) y un selector de quién está calificando.
+- El test de CI que antes vivía aquí sigue disponible en [`/test-ci/`](test-ci/).
 
-Es un único archivo estático (`index.html`), sin dependencias ni paso de compilación. El puntaje es una estimación con fines de entretenimiento: no es una prueba clínica.
+## Publicar en Vercel (una sola vez)
+
+1. En [vercel.com/new](https://vercel.com/new), importa el repositorio `test-ci-pareja`. No cambies nada en *Build settings* y despliega.
+2. En el proyecto, ve a **Storage → Create Database → Upstash (Redis)**, elige el plan gratis y conéctalo al proyecto. Vercel agrega solo `KV_REST_API_URL` y `KV_REST_API_TOKEN`.
+3. En **Storage → Create → Blob**, crea un store y conéctalo al proyecto. Vercel agrega solo `BLOB_READ_WRITE_TOKEN`.
+4. En **Settings → Environment Variables**, agrega:
+   - `APP_PIN`: la clave que les va a pedir la web. Compártela solo con tu pareja.
+   - `PEOPLE`: `Sebas,Laura` (o los nombres que quieran, separados por coma).
+5. Ve a **Deployments** y haz **Redeploy** del último despliegue para que tome las variables.
+
+La primera vez que se abre la web se cargan 7 lugares de ejemplo. Se borran con el botón **Borrar ejemplos**. Para no cargarlos, agrega `SEED=off` antes del primer ingreso.
+
+Cada `git push` a `main` vuelve a publicar la web automáticamente.
+
+## Probar en tu computador
+
+```bash
+npm install
+APP_PIN=1234 npm run dev
+```
+
+Abre <http://localhost:3000>. Sin las variables de Upstash y Blob, todo se guarda en memoria mientras el servidor esté encendido.
+
+## GitHub Pages
+
+Si activas GitHub Pages, la web abre en **modo demostración**: se ve completa con los ejemplos, pero no guarda cambios, porque Pages no puede ejecutar la carpeta `api/`. Para usarla de verdad, usa la dirección de Vercel.
+
+## Estructura
+
+```
+index.html        la web completa (estilo editorial crema/negro, modo oscuro)
+api/data.js       GET: todos los datos · POST: crear, actualizar o borrar
+api/upload.js     POST: sube una foto a Vercel Blob
+lib/              almacenamiento, fotos, clave y datos de ejemplo
+img/              foto del ejemplo de Ciro BBQ
+scripts/dev.mjs   servidor local
+test-ci/          el test de CI en pareja
+```

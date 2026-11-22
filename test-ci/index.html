@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F5F7FA">
+<meta name="description" content="Test de razonamiento original con versión estándar de 30 preguntas y versión avanzada de 50, con ranking de resultados.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B6E8C'/%3E%3Cpath d='M20 24a12 12 0 1 1 20 9c-4 3-6 5-6 9' fill='none' stroke='white' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='34' cy='51' r='3.5' fill='white'/%3E%3C/svg%3E">
+<title>Test de CI en pareja</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: cuadernillo de examen en una columna, solo modo claro. Intro con versión y nombre, test pregunta por pregunta, resultado con curva, ranking ordenado de mejor a peor. */
+:root{
+  color-scheme:light;
+  --bg:#F5F7FA; --surface:#FFFFFF; --ink:#16232E; --muted:#556370; --line:#D6DDE3; --soft:#E7ECF0;
+  --accent:#0B6E8C; --accent-soft:#DFF1F6; --on-accent:#FFFFFF;
+  --ok:#1B7447; --ok-soft:#DDF1E5; --bad:#B3261E; --bad-soft:#FBE3E1;
+  --sans:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+html{background:var(--bg)}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.5;
+  padding-block:20px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+#app{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1,h2,h3,p,ul,ol,dl,dd,fieldset{margin:0;padding:0}
+h1{font-size:clamp(34px,9vw,52px);line-height:1.02;font-weight:700;letter-spacing:-.025em}
+h2{font-size:clamp(20px,5vw,24px);line-height:1.25;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+h3{font-size:16px;font-weight:700}
+.eyebrow{font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lead{font-size:17px;color:var(--muted);max-width:60ch}
+.note{font-size:14px;color:var(--muted);max-width:62ch}
+.note.err{color:var(--bad);font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.btn{font:inherit;font-weight:600;min-height:46px;padding:10px 18px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:transparent;color:var(--on-accent)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn.wide{width:100%}
+button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible,.vers input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+
+/* intro */
+.vers{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;border:0;min-width:0}
+.vers legend{font-weight:600;margin-bottom:8px;padding:0}
+.vers label{position:relative;display:block}
+.vers input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.vers span{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);min-height:64px}
+.vers small{color:var(--muted);font-size:13px}
+.vers input:checked + span{background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;min-width:0}
+.fld input{font:inherit;font-weight:400;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
+.rules{list-style:none;display:grid;gap:8px;font-size:15px}
+.rules li{padding-left:18px;position:relative}
+.rules li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:2px;background:var(--accent)}
+
+/* test */
+.bar-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.who{display:flex;align-items:center;gap:10px;font-weight:600;min-width:0}
+.who span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.swatch{width:12px;height:12px;border-radius:3px;background:var(--accent);flex:none}
+.timer{font:600 20px var(--mono);font-variant-numeric:tabular-nums;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.timer.low{color:var(--bad);border-color:var(--bad)}
+.prog{height:6px;border-radius:3px;background:var(--soft);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);transition:width .2s}
+.meta{font:500 13px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.q{font-size:clamp(18px,4.6vw,22px);line-height:1.35;font-weight:600;text-wrap:balance}
+.seq{display:flex;flex-wrap:wrap;gap:10px 12px;padding:8px 0;font-family:var(--mono);font-size:clamp(22px,6vw,32px);font-weight:500;font-variant-numeric:tabular-nums}
+.term{padding:4px 10px;border-bottom:2px solid var(--line)}
+.term.ask{color:var(--accent);border-color:var(--accent);font-weight:600}
+.mx{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);width:100%;max-width:300px}
+.mx.row{grid-template-columns:repeat(6,1fr);max-width:none}
+.mc{background:var(--surface);aspect-ratio:1;color:var(--ink);min-width:0}
+.mc svg{display:block;width:100%;height:100%}
+.opts{display:grid;gap:10px}
+.opts.vis{grid-template-columns:repeat(2,1fr)}
+@media (min-width:520px){.opts.vis{grid-template-columns:repeat(4,1fr)}}
+.opt{display:flex;align-items:center;gap:14px;width:100%;text-align:left;font:inherit;color:var(--ink);padding:12px 14px;min-height:52px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
+.opt:hover{border-color:var(--muted)}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.opt .txt{min-width:0;overflow-wrap:anywhere}
+.ltr{display:grid;place-items:center;flex:none;width:28px;height:28px;border:1px solid var(--line);border-radius:6px;font:600 13px var(--mono);background:var(--surface)}
+.opt[aria-pressed="true"] .ltr{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.opt.vis{flex-direction:column;align-items:stretch;gap:8px;padding:10px}
+.opt.vis .ltr{align-self:flex-start}
+.opt.vis svg{display:block;width:100%;max-width:120px;margin:0 auto;color:var(--ink)}
+.nav{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:6px}
+.mp{font:600 13px var(--mono);height:38px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--muted);cursor:pointer;font-variant-numeric:tabular-nums}
+.mp.done{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.mp.cur{outline:2px solid var(--ink);outline-offset:1px}
+.fin{display:flex;flex-direction:column;gap:10px}
+.fin .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fin p{font-size:15px}
+
+/* resultado */
+.rc{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.rc h2{color:var(--accent);overflow-wrap:anywhere}
+.big{font:600 clamp(64px,19vw,92px)/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--accent);letter-spacing:-.03em}
+.band{font-weight:600}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+.facts dt{color:var(--muted);font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.facts dd{font:600 16px var(--mono);font-variant-numeric:tabular-nums}
+.bell{display:block;width:100%;max-width:520px;height:auto}
+.bell .tk{font:500 11px var(--mono);fill:var(--muted)}
+.bell .lb{font:700 13px var(--sans)}
+.cat{display:flex;flex-direction:column;gap:6px}
+.cat h3{font-size:14px}
+.brow{display:grid;grid-template-columns:1fr 52px;align-items:center;gap:10px;font-size:14px}
+.bar{height:10px;background:var(--soft);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.val{font:600 13px var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+details{font-size:14px;color:var(--muted)}
+summary{cursor:pointer;font-weight:600;color:var(--ink)}
+details p{margin-top:8px;max-width:62ch}
+.actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+
+/* ranking */
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{font:inherit;font-weight:600;min-height:42px;padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.cmp{font-size:16px;font-weight:500}
+.flash{padding:10px 12px;border-radius:8px;background:var(--ok-soft);color:var(--ok);font-weight:600;font-size:14px}
+.rk{list-style:none;display:flex;flex-direction:column;gap:10px}
+.rkrow{display:grid;grid-template-columns:36px 1fr auto;gap:8px 12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);min-width:0}
+.rkrow.top{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+.rkrow.new{outline:2px dashed var(--accent);outline-offset:2px}
+.pos{font:700 18px var(--mono);color:var(--muted);text-align:center}
+.rkrow.top .pos{color:var(--accent)}
+.rkn{display:flex;flex-direction:column;min-width:0}
+.rkn strong{overflow-wrap:anywhere}
+.rkn small{color:var(--muted);font-size:12px}
+.nums{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.nums .sc{font-weight:700;font-size:24px;line-height:1.1}
+.nums span{font-size:12px;color:var(--muted)}
+.ract{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.mini-btn{font:600 12px var(--sans);padding:6px 10px;min-height:36px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);cursor:pointer}
+.mini-btn:hover{border-color:var(--muted)}
+.mini-btn.danger{color:var(--bad)}
+.tag{font:600 11px var(--mono);padding:1px 6px;border-radius:4px;background:var(--accent);color:var(--on-accent);margin-left:6px;vertical-align:middle}
+.crown{font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+textarea,.sharebox{font:13px var(--mono);width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+textarea{min-height:76px;resize:vertical}
+
+/* revisión */
+.rv{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.rv.ok{border-left-color:var(--ok)}
+.rv.bad{border-left-color:var(--bad)}
+.rv header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font:600 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.rv .st{padding:2px 8px;border-radius:5px}
+.rv.ok .st{background:var(--ok-soft);color:var(--ok)}
+.rv.bad .st{background:var(--bad-soft);color:var(--bad)}
+.rv .q{font-size:16px}
+.rv .ans{font-size:14px}
+.rv .why{font-size:14px;color:var(--muted);max-width:62ch}
+.minis{display:flex;flex-wrap:wrap;gap:12px}
+.mini{display:flex;flex-direction:column;gap:4px;font:500 12px var(--mono);color:var(--muted)}
+.mini svg{width:84px;height:84px;color:var(--ink);border:1px solid var(--line);background:var(--surface)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<div id="app"></div>
+
+<script>
+'use strict';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const PI = Math.PI;
+
+/* ---------- dibujo de figuras ---------- */
+function poly(x, y, r, n) {
+  const p = [];
+  for (let i = 0; i < n; i++) {
+    const a = (-90 + i * 360 / n) * PI / 180;
+    p.push((x + r * Math.cos(a)).toFixed(1) + ',' + (y + r * Math.sin(a)).toFixed(1));
+  }
+  return p.join(' ');
+}
+function shp(s) {
+  const x = s.x ?? 40, y = s.y ?? 40, r = s.r ?? 14, f = s.f || 'o', rot = s.rot || 0;
+  const fill = f === 'o' ? 'none' : 'currentColor';
+  const fo = f === 'h' ? ' fill-opacity=".28"' : '';
+  const tr = rot ? ` transform="rotate(${rot} ${x} ${y})"` : '';
+  const st = `fill="${fill}"${fo} stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"${tr}`;
+  const ln = d => `<path d="${d}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>`;
+  switch (s.t) {
+    case 'c': return `<circle cx="${x}" cy="${y}" r="${r}" ${st}/>`;
+    case 's': return `<rect x="${x - r}" y="${y - r}" width="${2 * r}" height="${2 * r}" ${st}/>`;
+    case 'tri': return `<polygon points="${poly(x, y, r, 3)}" ${st}/>`;
+    case 'poly': return `<polygon points="${poly(x, y, r, s.n)}" ${st}/>`;
+    case 'rt': return `<polygon points="${[[-r,-r],[-r,r],[r,r]].map(p => (x + p[0]) + ',' + (y + p[1])).join(' ')}" ${st}/>`;
+    case 'ar': {
+      const k = [[0,-1],[.62,0],[.22,0],[.22,1],[-.22,1],[-.22,0],[-.62,0]];
+      return `<polygon points="${k.map(p => (x + p[0] * r).toFixed(1) + ',' + (y + p[1] * r).toFixed(1)).join(' ')}" ${st}/>`;
+    }
+    case 'dot': return `<circle cx="${x}" cy="${y}" r="${r}" fill="currentColor"/>`;
+    case 'fd': return `<circle cx="${x}" cy="${y}" r="${r}" fill="currentColor" fill-opacity=".22"/>`;
+    case 'plus': return ln(`M${x - r} ${y}H${x + r}M${x} ${y - r}V${y + r}`);
+    case 'hl': return ln(`M${x - r} ${y}H${x + r}`);
+    case 'sq2': return s.on
+      ? `<rect x="${x}" y="${y}" width="${r}" height="${r}" rx="2" fill="currentColor"/>`
+      : `<rect x="${x}" y="${y}" width="${r}" height="${r}" rx="2" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width="2"/>`;
+    case 'g': return `<g transform="rotate(${rot} 40 40)">${s.kids.map(shp).join('')}</g>`;
+  }
+  return '';
+}
+const cellSvg = list => `<svg viewBox="0 0 80 80" aria-hidden="true">${list.map(shp).join('')}</svg>`;
+const QM = `<svg viewBox="0 0 80 80" aria-hidden="true"><text x="40" y="52" text-anchor="middle" font-size="38" font-weight="600" style="font-family:var(--mono);fill:var(--accent)">?</text></svg>`;
+function grid(fn) {
+  const a = [];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { if (r === 2 && c === 2) continue; a.push(fn(r, c)); }
+  return a;
+}
+
+/* ---------- figuras: versión estándar ---------- */
+const LAY = {1:[[40,40]], 2:[[26,40],[54,40]], 3:[[40,23],[24,55],[56,55]]};
+const RAD = {1:17, 2:12, 3:10};
+const cnt = (t, n, f = 'o') => LAY[n].map(([x, y]) => ({t, x, y, r: RAD[n] + (t === 'tri' ? 1 : 0), f}));
+const g1 = { grid: grid((r, c) => cnt(['c','s','tri'][c], r + 1)),
+  opts: [cnt('s',3), cnt('tri',2), cnt('tri',3), cnt('c',3)], a: 2 };
+
+const FT = [['o','h','f'],['h','f','o'],['f','o','h']], ST = ['c','s','tri'];
+const sh2 = (r, f) => [{t: ST[r], r: ST[r] === 'tri' ? 20 : 17, f}];
+const g2 = { grid: grid((r, c) => sh2(r, FT[r][c])),
+  opts: [sh2(2,'f'), sh2(2,'o'), sh2(1,'h'), sh2(2,'h')], a: 3 };
+
+const ar = (r, rot) => [{t:'ar', r, rot}];
+const g3 = { grid: grid((r, c) => ar([13,17,21][r], 90 * c)),
+  opts: [ar(21,270), ar(21,180), ar(21,90), ar(17,180)], a: 1 };
+
+const pg = (n, f) => n === 4 ? [{t:'s', r:14, f}] : [{t:'poly', n, r:19, f}];
+const g5 = { grid: grid((r, c) => pg([3,4,5][c], ['o','f','o'][r])),
+  opts: [pg(4,'o'), pg(5,'f'), pg(5,'o'), pg(6,'o')], a: 2 };
+
+const DICE = {1:[[40,40]], 2:[[24,24],[56,56]], 3:[[22,22],[40,40],[58,58]], 4:[[24,24],[56,24],[24,56],[56,56]],
+  5:[[22,22],[58,22],[40,40],[22,58],[58,58]], 6:[[24,20],[56,20],[24,40],[56,40],[24,60],[56,60]]};
+const dice = n => DICE[n].map(([x, y]) => ({t:'dot', x, y, r:6}));
+const CM = [[1,2,3],[2,2,4],[2,3,5]];
+const g6 = { grid: grid((r, c) => dice(CM[r][c])),
+  opts: [dice(5), dice(4), dice(6), dice(3)], a: 0 };
+
+const GL = {
+  A: [{t:'c', r:18}, {t:'plus', r:10}],
+  B: [{t:'s', r:16}, {t:'dot', r:4}],
+  C: [{t:'tri', r:21}, {t:'hl', y:45, r:9}],
+  D: [{t:'c', r:18}, {t:'dot', r:4}]
+};
+const LR = [['A','B','C'],['C','A','B'],['B','C','A']];
+const g7 = { grid: grid((r, c) => GL[LR[r][c]]),
+  opts: [GL.C, GL.D, GL.B, GL.A], a: 3 };
+
+const xor = (a, b) => a.map((v, i) => v ^ b[i]);
+const bits = b => b.map((v, i) => ({t:'sq2', x:[14,42,14,42][i], y:[14,14,42,42][i], r:24, on:!!v}));
+const BB = [[[1,0,0,1],[1,1,0,0]], [[0,1,1,0],[1,1,0,0]], [[1,1,0,1],[0,1,1,0]]];
+const g4 = { grid: grid((r, c) => c === 0 ? bits(BB[r][0]) : c === 1 ? bits(BB[r][1]) : bits(xor(BB[r][0], BB[r][1]))),
+  opts: [bits([1,1,1,1]), bits(xor(BB[2][0], BB[2][1])), bits([0,1,0,0]), bits([1,0,0,1])], a: 1 };
+
+const rt = a => [{t:'rt', r:20, f:'f', rot:a}];
+const g8 = { grid: grid((r, c) => rt(45 * (3 * r + c))),
+  opts: [rt(0), rt(45), rt(315), rt(90)], a: 0 };
+
+/* ---------- figuras: versión avanzada ---------- */
+const arf = (f, rot) => [{t:'ar', r:22, f, rot}];
+const a1 = { grid: grid((r, c) => arf(['o','h','f'][r], 90 * c)),
+  opts: [arf('f',90), arf('h',180), arf('f',270), arf('f',180)], a: 3 };
+
+const nest = (c, r) => [{t: ['c','s','tri'][c], r: [20,18,22][c]}].concat([[{t:'dot', r:4}], [{t:'plus', r:8}], [{t:'hl', r:9}]][r]);
+const a2 = { grid: grid((r, c) => nest(c, r)),
+  opts: [nest(2,2), nest(2,1), nest(0,2), nest(1,2)], a: 0 };
+
+const CM2 = [[4,1,3],[5,2,3],[6,2,4]];
+const a3 = { grid: grid((r, c) => dice(CM2[r][c])),
+  opts: [dice(3), dice(5), dice(4), dice(6)], a: 2 };
+
+const rtc = (n, rot) => LAY[n].map(([x, y]) => ({t:'rt', x, y, r: Math.round(RAD[n] * .85), f:'f', rot}));
+const a4 = { grid: grid((r, c) => rtc(r + 1, 90 * c)),
+  opts: [rtc(3,90), rtc(3,180), rtc(2,180), rtc(3,270)], a: 1 };
+
+const P5 = {1:[[40,40]], 2:[[24,40],[56,40]], 3:[[40,22],[22,56],[58,56]]}, R5 = {1:17, 2:12, 3:9}, SC = [.7, 1, 1.25];
+const cs = (n, k) => P5[n].map(([x, y]) => ({t:'c', x, y, r: Math.round(R5[n] * k)}));
+const a11 = { grid: grid((r, c) => cs(3 - c, SC[r])),
+  opts: [cs(1,1), cs(2,1), cs(1,1.25), cs(1,.7)], a: 2 };
+
+const OV = [[[{t:'c', r:18}], [{t:'s', r:10}]], [[{t:'tri', r:19}], [{t:'c', r:8}]], [[{t:'s', r:17}], [{t:'tri', r:10}]]];
+const ovc = (r, c) => c === 0 ? OV[r][0] : c === 1 ? OV[r][1] : OV[r][0].concat(OV[r][1]);
+const a8 = { grid: grid(ovc),
+  opts: [[{t:'tri', r:19}, {t:'s', r:10}], ovc(2,2), [{t:'s', r:17}, {t:'c', r:10}], [{t:'s', r:17}]], a: 1 };
+
+const a6 = { row: [cnt('c',1), cnt('s',3), cnt('c',2), cnt('s',2), cnt('c',3)],
+  opts: [cnt('s',1), cnt('c',1), cnt('s',2), cnt('tri',1)], a: 0 };
+
+const a5 = { row: [0,135,270,45,180].map(a => arf('o', a)),
+  opts: [arf('o',225), arf('o',315), arf('o',90), arf('o',135)], a: 1 };
+
+const RING = [[20,20],[40,20],[60,20],[60,40],[60,60],[40,60],[20,60],[20,40]];
+const FAINT = [20,40,60].flatMap(y => [20,40,60].map(x => ({t:'fd', x, y, r:2.6})));
+const rd = k => FAINT.concat([{t:'dot', x:RING[k % 8][0], y:RING[k % 8][1], r:7}]);
+const a7 = { row: [0,3,6,9,12].map(rd),
+  opts: [rd(2), rd(5), rd(6), rd(7)], a: 3 };
+
+const a12 = { row: [[1,0,0,0],[1,1,0,0],[1,1,0,1],[1,1,1,1],[0,1,1,1]].map(bits),
+  opts: [bits([0,0,1,0]), bits([0,1,0,1]), bits([0,0,1,1]), bits([1,0,1,1])], a: 2 };
+
+const b9 = a => a.map((v, i) => ({t:'sq2', x:[12,32,52][i % 3], y:[12,32,52][Math.floor(i / 3)], r:16, on:!!v}));
+const andNot = (a, b) => a.map((v, i) => v && !b[i] ? 1 : 0);
+const orB = (a, b) => a.map((v, i) => v || b[i] ? 1 : 0);
+const B9 = [
+  [[1,1,0,0,1,0,1,0,1],[0,1,0,1,1,0,0,0,1]],
+  [[0,1,1,1,0,1,0,1,0],[0,0,1,0,0,1,1,1,0]],
+  [[1,0,1,0,1,1,1,1,0],[0,0,1,1,1,0,0,1,1]]
+];
+const a9 = { grid: grid((r, c) => c === 0 ? b9(B9[r][0]) : c === 1 ? b9(B9[r][1]) : b9(andNot(B9[r][0], B9[r][1]))),
+  opts: [b9(xor(B9[2][0], B9[2][1])), b9(andNot(B9[2][0], B9[2][1])), b9(orB(B9[2][0], B9[2][1])), b9(andNot(B9[2][1], B9[2][0]))], a: 1 };
+
+const PP = [
+  [{t:'c', x:26, y:26, r:10, f:'f'}, {t:'s', x:54, y:54, r:8, f:'o'}],
+  [{t:'tri', x:40, y:24, r:12, f:'h'}, {t:'dot', x:56, y:56, r:5}],
+  [{t:'s', x:24, y:40, r:9, f:'f'}, {t:'c', x:54, y:30, r:7, f:'o'}, {t:'dot', x:48, y:58, r:4}]
+];
+const gp = (k, a) => [{t:'g', rot:a, kids:PP[k]}];
+const a10 = { grid: grid((r, c) => gp(r, 90 * c)),
+  opts: [gp(2,90), gp(2,0), gp(2,270), gp(2,180)], a: 3 };
+
+const VQ = 'Elige la figura que completa la matriz.';
+const VS = 'Elige la figura que continúa la serie.';
+const V = (d, o, why, q = VQ) => ({cat:'Visual', d, q, vis:true, ...o, why});
+
+/* ---------- banco estándar (30) ---------- */
+const Q_STD = [
+  {cat:'Numérico', d:1, q:'¿Qué número continúa la serie?', seq:[2,6,12,20,30], opts:['36','40','42','44'], a:2,
+   why:'Las diferencias son 4, 6, 8 y 10; la siguiente es 12. Entonces 30 + 12 = 42.'},
+  {cat:'Numérico', d:1, q:'¿Qué número continúa la serie?', seq:[3,6,11,18,27], opts:['36','38','40','45'], a:1,
+   why:'Se suma 3, 5, 7 y 9; ahora toca 11. Entonces 27 + 11 = 38.'},
+  {cat:'Numérico', d:2, q:'Una botella y su tapón cuestan $1.100 en total. La botella cuesta $1.000 más que el tapón. ¿Cuánto cuesta el tapón?', opts:['$100','$150','$50','$10'], a:2,
+   why:'Si el tapón vale x, la botella vale x + 1.000 y juntos suman 2x + 1.000 = 1.100. Entonces x = 50.'},
+  {cat:'Numérico', d:2, q:'¿Qué número continúa la serie?', seq:[2,3,5,9,17], opts:['29','31','33','35'], a:2,
+   why:'Las diferencias se duplican: 1, 2, 4 y 8; la siguiente es 16. Entonces 17 + 16 = 33.'},
+  {cat:'Numérico', d:2, q:'¿Qué número continúa la serie?', seq:[5,10,20,35,55], opts:['75','80','85','90'], a:1,
+   why:'Las diferencias son 5, 10, 15 y 20; la siguiente es 25. Entonces 55 + 25 = 80.'},
+  {cat:'Numérico', d:2, q:'¿Qué número continúa la serie?', seq:[4,7,8,11,12,15], opts:['16','17','18','19'], a:0,
+   why:'Alternan dos reglas: +3, +1, +3, +1, +3 y ahora +1. Entonces 15 + 1 = 16.'},
+  {cat:'Numérico', d:2, q:'Dos trenes parten al mismo tiempo desde dos ciudades separadas por 450 km y avanzan uno hacia el otro: uno a 60 km/h y el otro a 90 km/h. ¿Cuántas horas pasan hasta que se cruzan?', opts:['2 h','4 h','5 h','3 h'], a:3,
+   why:'Se acercan a 60 + 90 = 150 km/h. Entonces 450 ÷ 150 = 3 horas.'},
+  {cat:'Numérico', d:3, q:'¿Qué número continúa la serie?', seq:[3,4,8,17,33], opts:['54','56','58','60'], a:2,
+   why:'Se suman los cuadrados perfectos: +1, +4, +9 y +16; ahora toca +25. Entonces 33 + 25 = 58.'},
+  {cat:'Verbal', d:1, q:'Zapato es a pie como guante es a…', opts:['Invierno','Mano','Dedo','Lana'], a:1,
+   why:'El zapato cubre el pie; el guante cubre la mano.'},
+  {cat:'Verbal', d:1, q:'Médico es a bisturí como pintor es a…', opts:['Lienzo','Museo','Color','Pincel'], a:3,
+   why:'Cada profesional se relaciona con su herramienta principal de trabajo.'},
+  {cat:'Verbal', d:1, q:'¿Cuál no pertenece al grupo?', opts:['Violín','Chelo','Flauta','Guitarra'], a:2,
+   why:'Violín, chelo y guitarra son instrumentos de cuerda. La flauta es de viento.'},
+  {cat:'Verbal', d:2, q:'¿Cuál no pertenece al grupo?', opts:['Soneto','Elegía','Haiku','Sinfonía'], a:3,
+   why:'Soneto, elegía y haiku son formas poéticas. La sinfonía es una obra musical.'},
+  {cat:'Verbal', d:2, q:'Elige la palabra de significado más opuesto a EFÍMERO.', opts:['Fugaz','Duradero','Frágil','Sutil'], a:1,
+   why:'Efímero es lo que dura poco; su opuesto es lo que perdura.'},
+  {cat:'Verbal', d:2, q:'Elige la palabra de significado más cercano a LOCUAZ.', opts:['Astuto','Silencioso','Torpe','Hablador'], a:3,
+   why:'Locuaz es quien habla mucho.'},
+  {cat:'Verbal', d:3, q:'Cima es a base como cenit es a…', opts:['Horizonte','Nadir','Alba','Estrella'], a:1,
+   why:'Cima y base son los extremos opuestos de una montaña. Cenit y nadir son los puntos opuestos de la esfera celeste.'},
+  {cat:'Verbal', d:3, q:'Cauteloso es a imprudente como frugal es a…', opts:['Ahorrador','Sobrio','Derrochador','Humilde'], a:2,
+   why:'Cauteloso e imprudente son opuestos. El opuesto de frugal (moderado en el gasto) es derrochador.'},
+  {cat:'Lógico', d:1, q:'Ana es más alta que Beto. Beto es más alto que Carla. Diana es más baja que Carla. ¿Quién ocupa el segundo lugar en estatura?', opts:['Ana','Carla','Diana','Beto'], a:3,
+   why:'De mayor a menor estatura el orden es Ana, Beto, Carla y Diana.'},
+  {cat:'Lógico', d:2, q:'Todos los gatos son felinos. Algunos felinos son domésticos. ¿Cuál afirmación es necesariamente verdadera?', opts:['Todos los gatos son domésticos','Algunos gatos son domésticos','Ningún gato es doméstico','Ninguna de las anteriores se deduce con certeza'], a:3,
+   why:'Los felinos domésticos podrían no ser gatos. Con esos datos no se puede asegurar nada sobre los gatos domésticos.'},
+  {cat:'Lógico', d:2, q:'Todos los A son B. Ningún B es C. ¿Qué se concluye?', opts:['Algunos A son C','Ningún A es C','Todos los C son A','Todos los B son A'], a:1,
+   why:'Si todo A es B y ningún B es C, entonces ningún A puede ser C.'},
+  {cat:'Lógico', d:2, q:'Hoy es miércoles. ¿Qué día de la semana será dentro de 100 días?', opts:['Jueves','Sábado','Viernes','Domingo'], a:2,
+   why:'100 días son 14 semanas completas y 2 días más. Miércoles + 2 días = viernes.'},
+  {cat:'Lógico', d:2, q:'Cinco personas hacen fila. Tomás es el primero. Luis está antes que Marta, Marta antes que Pedro, y Sofía está justo detrás de Pedro. ¿Quién ocupa el cuarto lugar?', opts:['Marta','Sofía','Pedro','Luis'], a:2,
+   why:'El orden es Tomás, Luis, Marta, Pedro y Sofía. El cuarto lugar es Pedro.'},
+  {cat:'Lógico', d:3, q:'Un padre tiene hoy el triple de la edad de su hijo. Dentro de 12 años tendrá el doble. ¿Cuántos años tiene hoy el hijo?', opts:['8','10','12','14'], a:2,
+   why:'Si el hijo tiene x, entonces 3x + 12 = 2(x + 12), así que x = 12 (el padre tiene 36).'},
+  V(1, g1, 'Cada columna tiene su figura (círculo, cuadrado, triángulo) y cada fila su cantidad (1, 2, 3). Falta 3 triángulos.'),
+  V(1, g2, 'Cada fila usa una sola figura y los tres rellenos (vacío, medio, lleno) se desplazan una posición por fila. En la última fila falta el triángulo con relleno medio.'),
+  V(2, g3, 'La flecha gira 90° por columna y crece por fila. Falta la flecha grande girada 180°.'),
+  V(2, g5, 'Los lados aumentan por columna (3, 4, 5) y el relleno alterna por fila (vacío, lleno, vacío). Falta el pentágono vacío.'),
+  V(2, g6, 'En cada fila, los puntos de las dos primeras celdas se suman en la tercera: 2 + 3 = 5.'),
+  V(2, g7, 'Cada fila contiene las tres figuras y ninguna se repite en una columna. En la última fila falta el círculo con cruz.'),
+  V(3, g4, 'La tercera celda de cada fila marca solo los cuadros que están llenos en una de las dos primeras celdas, no en ambas.'),
+  V(3, g8, 'El triángulo gira 45° en cada celda, de izquierda a derecha y de arriba abajo. La última celda completa la vuelta: 360°, igual que 0°.')
+];
+
+/* ---------- banco avanzado (50) ---------- */
+const Q_ADV = [
+  // Numérico (14)
+  {cat:'Numérico', d:1, q:'¿Qué número continúa la serie?', seq:[7,10,16,25,37], opts:['49','50','52','54'], a:2,
+   why:'Las diferencias son 3, 6, 9 y 12; sigue 15. Entonces 37 + 15 = 52.'},
+  {cat:'Numérico', d:1, q:'La suma de tres números consecutivos es 87. ¿Cuál es el mayor?', opts:['29','30','31','28'], a:1,
+   why:'El número del medio es 87 ÷ 3 = 29, así que son 28, 29 y 30.'},
+  {cat:'Numérico', d:2, q:'¿Qué número continúa la serie?', seq:[1,3,7,15,31], opts:['61','62','65','63'], a:3,
+   why:'Cada término es el doble del anterior más 1: 31 × 2 + 1 = 63.'},
+  {cat:'Numérico', d:2, q:'¿Qué número continúa la serie?', seq:[8,5,9,6,10,7], opts:['8','11','12','9'], a:1,
+   why:'Hay dos series intercaladas: 8, 9, 10, 11… y 5, 6, 7… Toca la primera: 11.'},
+  {cat:'Numérico', d:2, q:'Un artículo cuesta $80.000 después de un descuento del 20%. ¿Cuál era su precio original?', opts:['$96.000','$90.000','$100.000','$104.000'], a:2,
+   why:'$80.000 es el 80% del precio original. Entonces 80.000 ÷ 0,8 = 100.000.'},
+  {cat:'Numérico', d:2, q:'Si 3 obreros construyen un muro en 12 días, ¿cuántos días tardarían 4 obreros trabajando al mismo ritmo?', opts:['9','8','10','16'], a:0,
+   why:'El trabajo equivale a 3 × 12 = 36 días de obrero. Con 4 obreros: 36 ÷ 4 = 9 días.'},
+  {cat:'Numérico', d:2, q:'Ana da una vuelta a una pista en 6 minutos y Beto en 9. Salen juntos del mismo punto y en la misma dirección. ¿Cuántos minutos pasan hasta que vuelven a coincidir en la salida?', opts:['12','15','36','18'], a:3,
+   why:'Coinciden en el mínimo común múltiplo de 6 y 9, que es 18.'},
+  {cat:'Numérico', d:2, q:'¿Qué número continúa la serie?', seq:[2,6,7,21,22,66], opts:['69','67','88','198'], a:1,
+   why:'Se alterna ×3 y +1: 2×3, +1, ×3, +1, ×3 y ahora +1. Entonces 66 + 1 = 67.'},
+  {cat:'Numérico', d:3, q:'¿Qué número continúa la serie?', seq:[2,12,36,80,150], opts:['210','240','264','252'], a:3,
+   why:'El término n vale n² × (n + 1): 1²·2, 2²·3, 3²·4, 4²·5, 5²·6. El siguiente es 6²·7 = 252.'},
+  {cat:'Numérico', d:3, q:'¿Qué número continúa la serie?', seq:[1,2,4,7,12,20], opts:['33','30','32','34'], a:0,
+   why:'Las diferencias son 1, 2, 3, 5 y 8, y cada una suma las dos anteriores. La siguiente es 13: 20 + 13 = 33.'},
+  {cat:'Numérico', d:3, q:'Un recipiente tiene 40 litros de una mezcla con 25% de alcohol. ¿Cuántos litros de agua hay que añadir para que el alcohol sea el 20%?', opts:['8','10','12','15'], a:1,
+   why:'Hay 10 litros de alcohol. Para que sean el 20%, el total debe ser 50 litros; se añaden 10.'},
+  {cat:'Numérico', d:3, q:'Se lanzan dos dados. ¿Cuál es la probabilidad de que la suma sea 8?', opts:['1/6','7/36','1/9','5/36'], a:3,
+   why:'Hay 5 combinaciones (2-6, 3-5, 4-4, 5-3, 6-2) entre 36 posibles.'},
+  {cat:'Numérico', d:3, q:'Un ciclista sube una cuesta a 10 km/h y la baja por el mismo camino a 30 km/h. ¿Cuál es su velocidad media en todo el recorrido?', opts:['20 km/h','15 km/h','18 km/h','25 km/h'], a:1,
+   why:'Si la cuesta mide d, tarda d/10 + d/30 = 4d/30 y recorre 2d. La media es 2d ÷ (4d/30) = 15 km/h.'},
+  {cat:'Numérico', d:3, q:'¿En qué cifra termina 7 elevado a la 2026?', opts:['9','1','3','7'], a:0,
+   why:'Las últimas cifras de las potencias de 7 se repiten así: 7, 9, 3, 1. Como 2026 deja resto 2 al dividir entre 4, termina en 9.'},
+  // Verbal (12)
+  {cat:'Verbal', d:1, q:'Elige la palabra de significado más cercano a ENCOMIAR.', opts:['Criticar','Elogiar','Ocultar','Ordenar'], a:1,
+   why:'Encomiar es elogiar, alabar.'},
+  {cat:'Verbal', d:1, q:'Ornitólogo es a aves como entomólogo es a…', opts:['Peces','Rocas','Estrellas','Insectos'], a:3,
+   why:'El ornitólogo estudia las aves; el entomólogo estudia los insectos.'},
+  {cat:'Verbal', d:2, q:'Elige la palabra de significado más cercano a SOSLAYAR.', opts:['Eludir','Enfrentar','Resaltar','Exagerar'], a:0,
+   why:'Soslayar es pasar por alto o evitar una dificultad, es decir, eludir.'},
+  {cat:'Verbal', d:2, q:'Elige la palabra de significado más cercano a PERFIDIA.', opts:['Pereza','Astucia','Deslealtad','Elegancia'], a:2,
+   why:'Perfidia es deslealtad o traición.'},
+  {cat:'Verbal', d:2, q:'Elige la palabra de significado más opuesto a PRODIGALIDAD.', opts:['Abundancia','Prudencia','Elegancia','Tacañería'], a:3,
+   why:'Prodigalidad es gastar o dar con exceso; su opuesto es la tacañería.'},
+  {cat:'Verbal', d:2, q:'Termómetro es a temperatura como barómetro es a…', opts:['Humedad','Presión','Viento','Altura'], a:1,
+   why:'El termómetro mide la temperatura; el barómetro mide la presión atmosférica.'},
+  {cat:'Verbal', d:2, q:'¿Cuál no pertenece al grupo?', opts:['Alegoría','Metáfora','Epopeya','Hipérbole'], a:2,
+   why:'Alegoría, metáfora e hipérbole son recursos retóricos. La epopeya es un género de poema narrativo.'},
+  {cat:'Verbal', d:2, q:'¿Cuál no pertenece al grupo?', opts:['Mustio','Efusivo','Eufórico','Exultante'], a:0,
+   why:'Efusivo, eufórico y exultante expresan alegría intensa. Mustio es decaído o marchito.'},
+  {cat:'Verbal', d:3, q:'Elige la palabra de significado más opuesto a ESCUETO.', opts:['Breve','Prolijo','Seco','Claro'], a:1,
+   why:'Escueto es conciso y sin adornos; su opuesto es prolijo, que se extiende en detalles.'},
+  {cat:'Verbal', d:3, q:'Elige la palabra de significado más cercano a ABSTRUSO.', opts:['Evidente','Sencillo','Antiguo','Enrevesado'], a:3,
+   why:'Abstruso es lo difícil de comprender, lo enrevesado.'},
+  {cat:'Verbal', d:3, q:'Magnánimo es a mezquino como locuaz es a…', opts:['Parlanchín','Sagaz','Taciturno','Elocuente'], a:2,
+   why:'Magnánimo (generoso) y mezquino son opuestos. El opuesto de locuaz (que habla mucho) es taciturno.'},
+  {cat:'Verbal', d:3, q:'Vacuna es a enfermedad como cinturón de seguridad es a…', opts:['Automóvil','Velocidad','Conductor','Lesión'], a:3,
+   why:'La vacuna previene la enfermedad; el cinturón de seguridad previene la lesión.'},
+  // Lógico (12)
+  {cat:'Lógico', d:2, q:'Ningún reptil es mamífero. Algunos animales de laboratorio son reptiles. ¿Cuál afirmación es necesariamente verdadera?', opts:['Todos los animales de laboratorio son mamíferos','Algunos animales de laboratorio no son mamíferos','Ningún animal de laboratorio es reptil','Todos los mamíferos son animales de laboratorio'], a:1,
+   why:'Los animales de laboratorio que son reptiles no pueden ser mamíferos, así que algunos de ellos no son mamíferos.'},
+  {cat:'Lógico', d:2, q:'Si anteayer fue jueves, ¿qué día será pasado mañana?', opts:['Domingo','Martes','Sábado','Lunes'], a:3,
+   why:'Si anteayer fue jueves, hoy es sábado. Pasado mañana es lunes.'},
+  {cat:'Lógico', d:2, q:'En una carrera, Luis llegó antes que Marcos, pero después de Nora. Olga llegó antes que Nora y después de Pablo. ¿Quién llegó tercero?', opts:['Olga','Luis','Nora','Marcos'], a:2,
+   why:'El orden de llegada fue Pablo, Olga, Nora, Luis y Marcos.'},
+  {cat:'Lógico', d:2, q:'En una reunión, cada una de 8 personas saluda de mano a todas las demás exactamente una vez. ¿Cuántos saludos hay en total?', opts:['56','28','32','36'], a:1,
+   why:'Son 8 × 7 ÷ 2 = 28 saludos.'},
+  {cat:'Lógico', d:2, q:'Si llueve, el partido se cancela. El partido no se canceló. ¿Qué se concluye?', opts:['Llovió','Quizás llovió','No llovió','El partido se jugó bajo la lluvia'], a:2,
+   why:'Si la lluvia siempre cancela el partido y no se canceló, entonces no llovió.'},
+  {cat:'Lógico', d:3, q:'Hace 5 años, Sara tenía el cuádruple de la edad de su hija. Hoy tiene el triple. ¿Cuántos años tiene hoy la hija?', opts:['12','15','18','20'], a:1,
+   why:'Si la hija tiene x hoy, entonces 3x − 5 = 4(x − 5), así que x = 15 (Sara tiene 45).'},
+  {cat:'Lógico', d:3, q:'En una bolsa hay 5 bolas rojas y 3 azules. Se sacan 2 sin devolverlas. ¿Cuál es la probabilidad de que ambas sean rojas?', opts:['25/64','5/8','4/7','5/14'], a:3,
+   why:'(5/8) × (4/7) = 20/56 = 5/14.'},
+  {cat:'Lógico', d:3, q:'En una isla, los caballeros siempre dicen la verdad y los bribones siempre mienten. Ana dice: «Beto es bribón». Beto dice: «Ana y yo somos del mismo tipo». ¿Qué son?', opts:['Ana es caballera y Beto es bribón','Ambos son caballeros','Ana es bribona y Beto es caballero','Ambos son bribones'], a:0,
+   why:'Si Ana mintiera, Beto sería caballero y su frase tendría que ser verdadera, pero no lo sería. Entonces Ana dice la verdad, Beto es bribón y su frase es falsa, como corresponde.'},
+  {cat:'Lógico', d:3, q:'Cuatro amigas (Ema, Flor, Gina y Hilda) viven en pisos distintos, del 1 al 4. Ema vive más arriba que Flor y no vive en el piso 4. Gina vive justo debajo de Hilda. ¿Quién vive en el piso 3?', opts:['Gina','Ema','Flor','Hilda'], a:0,
+   why:'Gina y Hilda ocupan pisos seguidos, con Gina abajo. Solo encaja Gina en el 3 e Hilda en el 4, con Flor en el 1 y Ema en el 2.'},
+  {cat:'Lógico', d:3, q:'Una caja tiene tres cajones y solo uno guarda un premio. Cada cajón tiene una etiqueta y exactamente una de las tres es verdadera. Cajón 1: «El premio está aquí». Cajón 2: «El premio no está aquí». Cajón 3: «El premio no está en el cajón 1». ¿Dónde está el premio?', opts:['Cajón 1','Cajón 2','Cajón 3','No se puede saber'], a:1,
+   why:'Si estuviera en el 1, serían verdaderas las etiquetas 1 y 2. Si estuviera en el 3, serían verdaderas la 2 y la 3. En el 2 solo es verdadera la 3.'},
+  {cat:'Lógico', d:3, q:'¿Cuántas veces se superponen la manecilla horaria y el minutero en un día completo de 24 horas?', opts:['22','24','23','44'], a:0,
+   why:'En cada vuelta de 12 horas se superponen 11 veces, así que en 24 horas son 22.'},
+  {cat:'Lógico', d:3, q:'Tienes 8 monedas de apariencia idéntica y una pesa menos que las demás. Con una balanza de dos platillos, ¿cuál es el mínimo de pesadas que garantiza encontrarla?', opts:['1','3','2','4'], a:2,
+   why:'Se pesan 3 contra 3. Si equilibran, la falsa está entre las 2 restantes y basta una pesada más. Si no, está entre las 3 del platillo liviano y una pesada de 1 contra 1 la encuentra.'},
+  // Visual (12)
+  V(2, a1, 'La flecha gira 90° en cada columna y el relleno avanza por fila (vacío, medio, lleno). Falta la flecha llena girada 180°.'),
+  V(2, a3, 'En cada fila, la tercera celda es la primera menos la segunda: 6 − 2 = 4.'),
+  V(2, a2, 'La figura exterior depende de la columna (círculo, cuadrado, triángulo) y el símbolo interior de la fila (punto, cruz, raya). Falta el triángulo con raya.'),
+  V(2, a4, 'Cada fila tiene su cantidad de triángulos (1, 2, 3) y cada columna los gira 90° más. Falta 3 triángulos girados 180°.'),
+  V(2, a11, 'Cada columna tiene una cantidad de círculos (3, 2, 1) y cada fila un tamaño (pequeño, mediano, grande). Falta un solo círculo grande.'),
+  V(2, a8, 'La tercera celda de cada fila superpone las dos primeras: la figura grande con la pequeña dentro.'),
+  V(2, a6, 'Hay dos series intercaladas: círculos en aumento (1, 2, 3) y cuadrados en descenso (3, 2…). Toca un cuadrado: 1.', VS),
+  V(3, a5, 'Cada flecha gira 135° respecto a la anterior. Después de la de 180° toca la de 315°.', VS),
+  V(3, a7, 'El punto avanza 3 casillas por el borde, en sentido horario: arriba-izquierda, derecha, abajo-izquierda, arriba, abajo-derecha. La siguiente es el centro del lado izquierdo.', VS),
+  V(3, a12, 'Los cuadros se llenan en sentido horario (arriba-izquierda, arriba-derecha, abajo-derecha, abajo-izquierda) y luego se vacían en el mismo orden. Tras vaciar los dos de arriba, quedan llenos los dos de abajo.', VS),
+  V(3, a9, 'En cada fila, la tercera celda conserva solo los cuadros llenos de la primera que no están llenos en la segunda.'),
+  V(3, a10, 'En cada fila, el dibujo gira 90° de una celda a la siguiente. En la última fila falta ese mismo dibujo girado 180°.')
+];
+
+const CATS = ['Numérico', 'Verbal', 'Lógico', 'Visual'];
+const BANKS = {
+  std: {id:'std', name:'Estándar', q:Q_STD, sec:30 * 60, mean:.52, sd:.18, max:145},
+  adv: {id:'adv', name:'Avanzada', q:Q_ADV, sec:60 * 60, mean:.42, sd:.17, max:150}
+};
+let BK = BANKS.std, Q = BK.q, N = Q.length;
+function setBank(id) { BK = BANKS[id] || BANKS.std; Q = BK.q; N = Q.length; }
+
+/* ---------- puntaje ---------- */
+function erf(x) {
+  const s = x < 0 ? -1 : 1; x = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * x);
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return s * y;
+}
+const phi = z => 0.5 * (1 + erf(z / Math.SQRT2));
+function band(v) {
+  return v >= 130 ? 'Muy superior' : v >= 120 ? 'Superior' : v >= 110 ? 'Por encima del promedio' : v >= 90 ? 'Promedio' : v >= 80 ? 'Por debajo del promedio' : 'Bajo el promedio';
+}
+function score(ans, bk = BK) {
+  let e = 0, t = 0, ok = 0;
+  const cat = {};
+  CATS.forEach(c => cat[c] = {ok: 0, n: 0});
+  bk.q.forEach((q, i) => {
+    t += q.d; cat[q.cat].n++;
+    if (ans[i] === q.a) { e += q.d; ok++; cat[q.cat].ok++; }
+  });
+  const pct = e / t;
+  let iq = Math.round(100 + 15 * (pct - bk.mean) / bk.sd);
+  iq = Math.max(70, Math.min(bk.max, iq));
+  const p = Math.max(1, Math.min(99, Math.round(phi((iq - 100) / 15) * 100)));
+  return {iq, pct: p, ok, e, t, cat, band: band(iq), time: 0, ans: ans.slice(), ver: bk.id};
+}
+
+/* ---------- ranking guardado ---------- */
+const KEY = 'ci-ranking-v1', NAMEKEY = 'ci-nombre-v1';
+let RK = [], canStore = true;
+function validEntry(e) {
+  if (!e || typeof e !== 'object' || typeof e.n !== 'string' || !e.n.trim()) return false;
+  const b = BANKS[e.v];
+  return !!b && Number.isInteger(e.s) && e.s >= 70 && e.s <= b.max && Number.isInteger(e.k) && e.k >= 0 && e.k <= b.q.length
+    && Number.isInteger(e.t) && e.t >= 0 && e.t <= b.sec && Number.isFinite(e.d) && e.d > 0;
+}
+function loadRK() {
+  try { const r = JSON.parse(localStorage.getItem(KEY) || '[]'); RK = Array.isArray(r) ? r.filter(validEntry) : []; }
+  catch (e) { RK = []; canStore = false; }
+}
+function saveRK() { try { localStorage.setItem(KEY, JSON.stringify(RK)); return true; } catch (e) { canStore = false; return false; } }
+const enc = e => 'CI1.' + btoa(unescape(encodeURIComponent(JSON.stringify([e.n, e.v, e.s, e.k, e.t, e.d])))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function dec(txt) {
+  const m = /CI1\.([A-Za-z0-9_-]+)/.exec(txt || '');
+  if (!m) return null;
+  try {
+    let b = m[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (b.length % 4) b += '=';
+    const a = JSON.parse(decodeURIComponent(escape(atob(b))));
+    if (!Array.isArray(a) || a.length !== 6) return null;
+    const e = {n: String(a[0]).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 24), v: a[1], s: a[2], k: a[3], t: a[4], d: a[5], m: 0};
+    return validEntry(e) ? e : null;
+  } catch (err) { return null; }
+}
+const has = e => RK.some(x => x.d === e.d && x.n === e.n && x.v === e.v);
+const cmpRank = (a, b) => b.s - a.s || b.k - a.k || a.t - b.t || a.d - b.d;
+const linkFor = e => { try { return location.href.split('#')[0] + '#r=' + enc(e); } catch (x) { return enc(e); } };
+
+/* ---------- estado ---------- */
+const app = document.getElementById('app');
+const S = {screen:'intro', name:'', ver:'std', cur:0, ans:[], res:null, endAt:0, confirm:false, rtab:'std', hl:0, msg:'', rm:-1};
+try { S.name = localStorage.getItem(NAMEKEY) || ''; } catch (e) {}
+const fmt = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+const LET = 'ABCD';
+const fmtDate = d => new Date(d).toLocaleDateString('es', {day:'numeric', month:'short'});
+
+let tmr = null;
+const remaining = () => Math.max(0, Math.ceil((S.endAt - Date.now()) / 1000));
+function tick() {
+  const el = document.getElementById('timer');
+  const r = remaining();
+  if (el) { el.textContent = fmt(r); el.classList.toggle('low', r <= 300); }
+  if (r <= 0) finish();
+}
+function startTimer() { stopTimer(); tmr = setInterval(tick, 1000); }
+function stopTimer() { if (tmr) { clearInterval(tmr); tmr = null; } }
+
+/* ---------- piezas de pantalla ---------- */
+function stim(q) {
+  if (q.seq) return `<div class="seq" aria-label="Serie: ${q.seq.join(', ')}, y luego un número por descubrir">${q.seq.map(n => `<span class="term">${n}</span>`).join('')}<span class="term ask">?</span></div>`;
+  if (q.row) return `<div class="mx row" role="img" aria-label="Serie de cinco figuras seguida de una celda vacía">${q.row.map(c => `<div class="mc">${cellSvg(c)}</div>`).join('')}<div class="mc">${QM}</div></div>`;
+  if (q.grid) return `<div class="mx" role="img" aria-label="Matriz de figuras de 3 por 3 con la última celda vacía">${q.grid.map(c => `<div class="mc">${cellSvg(c)}</div>`).join('')}<div class="mc">${QM}</div></div>`;
+  return '';
+}
+function optHtml(q, i, sel) {
+  const L = LET[i];
+  if (q.vis) return `<button class="opt vis" data-act="pick" data-i="${i}" aria-pressed="${sel}" aria-label="Opción ${L}"><span class="ltr">${L}</span>${cellSvg(q.opts[i])}</button>`;
+  return `<button class="opt" data-act="pick" data-i="${i}" aria-pressed="${sel}"><span class="ltr">${L}</span><span class="txt">${q.opts[i]}</span></button>`;
+}
+
+function intro() {
+  app.innerHTML = `
+  <section class="card">
+    <p class="eyebrow">Razonamiento · dos versiones</p>
+    <h1>Test de CI</h1>
+    <p class="lead">Preguntas originales de razonamiento numérico, verbal, lógico y visual. Cada persona juega en su teléfono, guarda su resultado y lo compara en el ranking.</p>
+  </section>
+  <section class="card">
+    <label class="fld" for="name1"><span>Tu nombre</span><input id="name1" type="text" maxlength="24" autocomplete="off" placeholder="Como quieres aparecer en el ranking" value="${esc(S.name)}"></label>
+    <p class="note err" id="nameerr" role="alert" hidden>Escribe tu nombre para poder guardar el resultado en el ranking.</p>
+    <fieldset class="vers">
+      <legend>Elige la versión</legend>
+      <label><input type="radio" name="ver" id="ver-std" value="std" ${S.ver === 'std' ? 'checked' : ''}><span><strong>Estándar</strong><small>30 preguntas · 30 minutos</small></span></label>
+      <label><input type="radio" name="ver" id="ver-adv" value="adv" ${S.ver === 'adv' ? 'checked' : ''}><span><strong>Avanzada</strong><small>50 preguntas más difíciles · 60 minutos</small></span></label>
+    </fieldset>
+    <ul class="rules">
+      <li>Puedes volver a cualquier pregunta antes de terminar.</li>
+      <li>Equivocarse no resta puntos, así que conviene responder todas.</li>
+      <li>Las preguntas difíciles valen más que las fáciles.</li>
+      <li>Sin calculadora, sin buscar respuestas y sin consultar a nadie.</li>
+    </ul>
+    <button class="btn primary wide" data-act="start">Empezar</button>
+    <button class="btn wide" data-act="rank">Ver el ranking (${RK.length})</button>
+    <p class="note">Es un test original, pensado para entretenerse y comparar. No es una prueba clínica ni reemplaza una evaluación con un psicólogo. Las dos versiones tienen escalas distintas, por eso el ranking las separa.</p>
+  </section>`;
+}
+
+function finHtml() {
+  const A = S.ans;
+  const missing = A.filter(v => v < 0).length;
+  if (!S.confirm) return `<button class="btn wide" data-act="ask">Terminar el test</button>`;
+  return `<p>${missing ? `Te faltan ${missing} ${missing === 1 ? 'pregunta' : 'preguntas'} sin responder. Las que queden vacías no suman puntos.` : 'Respondiste todas las preguntas.'} Al terminar ya no podrás cambiar tus respuestas.</p>
+    <div class="row"><button class="btn" data-act="keep">Seguir revisando</button><button class="btn primary" data-act="finish">Terminar ahora</button></div>`;
+}
+
+function testView() {
+  const q = Q[S.cur], A = S.ans, sel = A[S.cur];
+  const answered = A.filter(v => v >= 0).length;
+  app.innerHTML = `
+  <div class="bar-top">
+    <div class="who"><span class="swatch"></span><span>${esc(S.name.trim())} · ${BK.name}</span></div>
+    <div class="timer${remaining() <= 300 ? ' low' : ''}" id="timer" role="timer" aria-label="Tiempo restante">${fmt(remaining())}</div>
+  </div>
+  <div class="prog" aria-hidden="true"><i id="progi" style="width:${(answered / N * 100).toFixed(1)}%"></i></div>
+  <p class="meta" id="count">${answered} de ${N} respondidas</p>
+  <section class="card">
+    <p class="eyebrow">Pregunta ${S.cur + 1} de ${N} · ${q.cat}</p>
+    <h2 class="q">${q.q}</h2>
+    ${stim(q)}
+    <div class="opts${q.vis ? ' vis' : ''}" role="group" aria-label="Opciones de respuesta">${q.opts.map((_, i) => optHtml(q, i, sel === i)).join('')}</div>
+  </section>
+  <div class="nav">
+    <button class="btn" data-act="prev" ${S.cur === 0 ? 'disabled' : ''}>Anterior</button>
+    <button class="btn primary" data-act="next" ${S.cur === N - 1 ? 'disabled' : ''}>Siguiente</button>
+  </div>
+  <div class="map" role="group" aria-label="Ir a una pregunta">${Q.map((_, i) => `<button class="mp${A[i] >= 0 ? ' done' : ''}${i === S.cur ? ' cur' : ''}" data-act="go" data-i="${i}" aria-label="Pregunta ${i + 1}${A[i] >= 0 ? ', respondida' : ''}">${i + 1}</button>`).join('')}</div>
+  <div class="fin" id="fin">${finHtml()}</div>`;
+}
+
+function bell(r) {
+  const W = 400, H = 210, L = 18, Rr = 18, base = 168, top = 58, x0 = 55, x1 = 155;
+  const X = v => L + (v - x0) / (x1 - x0) * (W - L - Rr);
+  const Y = v => base - (base - top) * Math.exp(-0.5 * Math.pow((v - 100) / 15, 2));
+  let d = '';
+  for (let v = x0; v <= x1; v++) d += (v === x0 ? 'M' : 'L') + X(v).toFixed(1) + ' ' + Y(v).toFixed(1);
+  let s = `<svg viewBox="0 0 ${W} ${H}" class="bell" role="img" aria-label="Curva normal de puntajes con tu posición: ${r.iq}">`;
+  s += `<path d="${d} L${X(x1).toFixed(1)} ${base} L${X(x0).toFixed(1)} ${base} Z" style="fill:var(--soft)"/>`;
+  s += `<path d="${d}" style="fill:none;stroke:var(--muted)" stroke-width="1.5"/>`;
+  s += `<line x1="${L}" x2="${W - Rr}" y1="${base}" y2="${base}" style="stroke:var(--muted)"/>`;
+  [70, 85, 100, 115, 130, 145].forEach(t => {
+    s += `<line x1="${X(t).toFixed(1)}" x2="${X(t).toFixed(1)}" y1="${base}" y2="${base + 5}" style="stroke:var(--muted)"/><text x="${X(t).toFixed(1)}" y="${base + 20}" text-anchor="middle" class="tk">${t}</text>`;
+  });
+  const x = X(r.iq), y = Y(r.iq), an = x > W - 90 ? 'end' : x < 90 ? 'start' : 'middle';
+  s += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="26" y2="${y.toFixed(1)}" style="stroke:var(--accent)" stroke-width="2"/>`;
+  s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" style="fill:var(--accent)"/>`;
+  s += `<text x="${x.toFixed(1)}" y="18" text-anchor="${an}" class="lb" style="fill:var(--accent)">${esc(S.name.trim())} · ${r.iq}</text>`;
+  return s + '</svg>';
+}
+
+function results() {
+  const r = S.res;
+  const cats = CATS.map(c => `
+    <div class="cat"><h3>${c}</h3>
+      <div class="brow"><span class="bar"><i style="width:${Math.round(r.cat[c].ok / r.cat[c].n * 100)}%"></i></span><span class="val">${r.cat[c].ok}/${r.cat[c].n}</span></div>
+    </div>`).join('');
+  const saved = !!S.saved;
+  app.innerHTML = `
+  <article class="rc">
+    <p class="eyebrow">Resultado · versión ${BK.name}</p>
+    <h2>${esc(S.name.trim())}</h2>
+    <div class="big" aria-label="Puntaje ${r.iq}">${r.iq}</div>
+    <p class="band">${r.band}</p>
+    <dl class="facts">
+      <div><dt>Percentil</dt><dd>${r.pct}</dd></div>
+      <div><dt>Rango probable</dt><dd>${Math.max(70, r.iq - 6)}–${r.iq + 6}</dd></div>
+      <div><dt>Correctas</dt><dd>${r.ok} de ${N}</dd></div>
+      <div><dt>Tiempo</dt><dd>${fmt(r.time)}</dd></div>
+    </dl>
+  </article>
+  <section class="card">
+    <h3>Guardar en el ranking</h3>
+    <p class="note">Se guardan tu nombre, el puntaje, el tiempo y los aciertos en este dispositivo. Después puedes enviar tu resultado a otra persona para que lo agregue a su ranking.</p>
+    ${saved ? `<p class="flash">Resultado guardado.</p><button class="btn primary" data-act="rank">Ver el ranking</button>` : `<button class="btn primary" data-act="save">Guardar mi resultado</button>`}
+  </section>
+  <section class="card"><h3>Dónde cae tu resultado</h3>${bell(r)}<p class="note">Escala con promedio 100 y desviación de 15, la misma que usan los tests de CI formales.</p></section>
+  <section class="card"><h3>Aciertos por área</h3>${cats}</section>
+  <section class="card"><details><summary>Cómo se calcula</summary>
+    <p>Cada pregunta vale 1, 2 o 3 puntos según su dificultad. El porcentaje de puntos obtenidos se convierte a una escala con promedio 100 y desviación de 15, y el resultado se limita entre 70 y ${BK.max}.</p>
+    <p>La versión avanzada es más difícil, así que se espera un porcentaje menor para llegar al mismo puntaje. Ninguna de las dos se ha aplicado a una muestra real de personas, por lo que la conversión es una estimación. Sirve para comparar entre ustedes y pasar un buen rato, no como medida clínica.</p></details></section>
+  <div class="actions"><button class="btn" data-act="review">Revisar respuestas</button><button class="btn" data-act="again">Volver al inicio</button></div>`;
+}
+
+function rv(q, i, a) {
+  const ok = a === q.a, st = ok ? 'Correcta' : a < 0 ? 'Sin responder' : 'Incorrecta';
+  const txt = k => q.vis ? `Opción ${LET[k]}` : `${LET[k]} · ${q.opts[k]}`;
+  const minis = q.vis ? `<div class="minis">${a >= 0 && !ok ? `<div class="mini">Tu respuesta (${LET[a]})${cellSvg(q.opts[a])}</div>` : ''}<div class="mini">Correcta (${LET[q.a]})${cellSvg(q.opts[q.a])}</div></div>` : '';
+  return `<article class="rv ${ok ? 'ok' : 'bad'}">
+    <header><span>${i + 1}</span><span>${q.cat}</span><span class="st">${st}</span></header>
+    <p class="q">${q.q}</p>
+    ${stim(q)}
+    <p class="ans">Tu respuesta: ${a >= 0 ? txt(a) : '—'}<br>Correcta: ${txt(q.a)}</p>
+    ${minis}
+    <p class="why">${q.why}</p>
+  </article>`;
+}
+function review() {
+  const A = S.res.ans;
+  app.innerHTML = `
+  <section class="card">
+    <p class="eyebrow">Revisión · versión ${BK.name}</p><h2>Respuestas y explicaciones</h2>
+    <button class="btn" data-act="back">Volver al resultado</button>
+  </section>
+  ${Q.map((q, i) => rv(q, i, A[i])).join('')}
+  <button class="btn wide" data-act="back">Volver al resultado</button>`;
+}
+
+function rank() {
+  const bk = BANKS[S.rtab], total = bk.q.length;
+  const list = RK.filter(e => e.v === S.rtab).sort(cmpRank);
+  let lead = '';
+  if (list.length) {
+    const t = list[0];
+    lead = `${esc(t.n)} va primero con ${t.s} puntos: ${t.k} de ${total} correctas en ${fmt(t.t)}.`;
+    if (list.length > 1 && list[1].s === t.s) lead += ' Hay empate en puntaje y se desempata por aciertos y luego por tiempo.';
+  }
+  const rows = list.map((e, i) => {
+    const idx = RK.indexOf(e);
+    const acts = S.rm === idx
+      ? `<span class="note">¿Quitar este resultado?</span><button class="mini-btn danger" data-act="rmyes" data-i="${idx}">Sí, quitar</button><button class="mini-btn" data-act="rmno">No</button>`
+      : `<button class="mini-btn" data-act="cpcode" data-i="${idx}">Copiar código</button><button class="mini-btn" data-act="cplink" data-i="${idx}">Copiar enlace</button><button class="mini-btn danger" data-act="rm" data-i="${idx}">Quitar</button>`;
+    return `<li class="rkrow${i === 0 ? ' top' : ''}${e.d === S.hl ? ' new' : ''}">
+      <span class="pos" aria-label="Puesto ${i + 1}">${i + 1}</span>
+      <div class="rkn"><strong>${esc(e.n)}${e.m ? '<span class="tag">Tú</span>' : ''}</strong>${i === 0 ? '<span class="crown">Mejor resultado</span>' : ''}<small>${fmtDate(e.d)}</small></div>
+      <div class="nums"><span class="sc">${e.s}</span><span>${fmt(e.t)} · ${e.k}/${total}</span></div>
+      <div class="ract">${acts}</div>
+    </li>`;
+  }).join('');
+  const counts = {std: RK.filter(e => e.v === 'std').length, adv: RK.filter(e => e.v === 'adv').length};
+  app.innerHTML = `
+  <section class="card">
+    <p class="eyebrow">Ranking</p><h2>Quién lo hizo mejor</h2>
+    <div class="tabs">${['std', 'adv'].map(v => `<button class="tab" data-act="rtab" data-v="${v}" aria-pressed="${S.rtab === v}">${BANKS[v].name} (${counts[v]})</button>`).join('')}</div>
+    ${S.msg ? `<p class="flash" role="status">${esc(S.msg)}</p>` : ''}
+    ${lead ? `<p class="cmp">${lead}</p>` : `<p class="note">Todavía no hay resultados en la versión ${bk.name}. Juega y guarda el tuyo, o agrega el de otra persona.</p>`}
+    ${canStore ? '' : `<p class="note err">Este navegador no permite guardar datos, así que el ranking se perderá al cerrar la página.</p>`}
+  </section>
+  ${list.length ? `<section class="card"><p class="note">Ordenado del mejor al peor: primero el puntaje, luego los aciertos y por último el menor tiempo.</p><ol class="rk">${rows}</ol></section>` : ''}
+  <section class="card">
+    <h3>Agregar el resultado de otra persona</h3>
+    <p class="note">Pídele que toque «Copiar código» o «Copiar enlace» en su ranking, y pega aquí lo que te envíe.</p>
+    <textarea id="imp" placeholder="CI1.…" aria-label="Código del resultado"></textarea>
+    <button class="btn" data-act="import">Agregar al ranking</button>
+    <p class="note" id="impmsg" role="status"></p>
+  </section>
+  <section class="card">
+    <h3>Texto para compartir</h3>
+    <input class="sharebox" id="sharebox" readonly aria-label="Código o enlace para compartir" placeholder="Aquí aparece lo que copies">
+    <p class="note" id="shmsg" role="status"></p>
+  </section>
+  <div class="actions">
+    ${S.res ? `<button class="btn" data-act="back">Volver a mi resultado</button>` : ''}
+    <button class="btn primary" data-act="again">${S.res ? 'Volver al inicio' : 'Hacer un test'}</button>
+  </div>`;
+}
+
+function render() {
+  ({intro, test: testView, results, review, rank}[S.screen])();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- acciones ---------- */
+function beginTest() {
+  S.ans = Array(N).fill(-1);
+  S.cur = 0; S.confirm = false; S.res = null; S.saved = null; S.screen = 'test';
+  S.endAt = Date.now() + BK.sec * 1000;
+  render(); startTimer();
+}
+function finish() {
+  if (S.screen !== 'test') return;
+  stopTimer();
+  const r = score(S.ans);
+  r.time = Math.min(BK.sec, BK.sec - remaining());
+  S.res = r; S.confirm = false; S.saved = null;
+  S.screen = 'results';
+  render();
+}
+function pick(i) {
+  const A = S.ans;
+  A[S.cur] = A[S.cur] === i ? -1 : i;
+  app.querySelectorAll('.opt').forEach((b, k) => b.setAttribute('aria-pressed', String(A[S.cur] === k)));
+  const m = app.querySelectorAll('.mp')[S.cur];
+  if (m) m.classList.toggle('done', A[S.cur] >= 0);
+  const n = A.filter(v => v >= 0).length;
+  document.getElementById('count').textContent = n + ' de ' + N + ' respondidas';
+  document.getElementById('progi').style.width = (n / N * 100) + '%';
+  S.confirm = false;
+  document.getElementById('fin').innerHTML = finHtml();
+}
+function move(d) {
+  const n = S.cur + d;
+  if (n < 0 || n >= N) return;
+  S.cur = n; S.confirm = false; testView(); window.scrollTo(0, 0);
+}
+function saveResult() {
+  const r = S.res;
+  const e = {n: S.name.trim().slice(0, 24), v: r.ver, s: r.iq, k: r.ok, t: r.time, d: Date.now(), m: 1};
+  RK.push(e); saveRK();
+  S.saved = e; S.hl = e.d; S.rtab = e.v; S.msg = 'Resultado guardado en el ranking.'; S.rm = -1;
+  S.screen = 'rank'; render();
+}
+function copyText(txt, ok) {
+  const box = document.getElementById('sharebox'), note = document.getElementById('shmsg');
+  if (box) box.value = txt;
+  const done = good => {
+    if (note) note.textContent = good ? ok : 'No se pudo copiar solo. Toca el cuadro de arriba, selecciona el texto y cópialo.';
+    if (!good && box) { box.focus(); box.select(); }
+  };
+  try { navigator.clipboard.writeText(txt).then(() => done(true), () => done(false)); } catch (e) { done(false); }
+}
+
+app.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const i = Number(b.dataset.i);
+  switch (b.dataset.act) {
+    case 'start': {
+      const name = document.getElementById('name1').value.trim();
+      if (!name) { document.getElementById('nameerr').hidden = false; document.getElementById('name1').focus(); break; }
+      S.name = name.slice(0, 24);
+      try { localStorage.setItem(NAMEKEY, S.name); } catch (x) {}
+      S.ver = document.getElementById('ver-adv').checked ? 'adv' : 'std';
+      setBank(S.ver); beginTest(); break;
+    }
+    case 'pick': pick(i); break;
+    case 'prev': move(-1); break;
+    case 'next': move(1); break;
+    case 'go': S.cur = i; S.confirm = false; testView(); window.scrollTo(0, 0); break;
+    case 'ask': S.confirm = true; document.getElementById('fin').innerHTML = finHtml(); break;
+    case 'keep': S.confirm = false; document.getElementById('fin').innerHTML = finHtml(); break;
+    case 'finish': finish(); break;
+    case 'save': saveResult(); break;
+    case 'rank': S.rtab = S.res ? S.res.ver : S.rtab; S.msg = ''; S.rm = -1; S.screen = 'rank'; render(); break;
+    case 'review': S.screen = 'review'; render(); break;
+    case 'back': S.screen = 'results'; render(); break;
+    case 'again': stopTimer(); S.screen = 'intro'; render(); break;
+    case 'rtab': S.rtab = b.dataset.v; S.msg = ''; S.rm = -1; rank(); break;
+    case 'cpcode': copyText(enc(RK[i]), 'Código copiado. Envíaselo a la otra persona.'); break;
+    case 'cplink': copyText(linkFor(RK[i]), 'Enlace copiado. Al abrirlo, el resultado se agrega solo al ranking de la otra persona.'); break;
+    case 'rm': S.rm = i; rank(); break;
+    case 'rmno': S.rm = -1; rank(); break;
+    case 'rmyes': RK.splice(i, 1); saveRK(); S.rm = -1; S.msg = 'Resultado quitado.'; rank(); break;
+    case 'import': {
+      const msg = document.getElementById('impmsg');
+      const en = dec(document.getElementById('imp').value);
+      if (!en) { msg.textContent = 'No reconozco ese código. Cópialo completo; empieza con CI1.'; break; }
+      if (has(en)) { msg.textContent = 'Ese resultado ya está en el ranking.'; break; }
+      RK.push(en); saveRK(); S.rtab = en.v; S.hl = en.d; S.msg = 'Se agregó el resultado de ' + en.n + '.'; S.rm = -1; rank(); break;
+    }
+  }
+});
+document.addEventListener('keydown', e => {
+  if (S.screen !== 'test' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  const idx = 'abcd'.indexOf(k) >= 0 ? 'abcd'.indexOf(k) : ['1', '2', '3', '4'].indexOf(k);
+  if (idx >= 0 && k.length === 1) pick(idx);
+  else if (e.key === 'ArrowRight') move(1);
+  else if (e.key === 'ArrowLeft') move(-1);
+});
+
+/* ---------- arranque ---------- */
+loadRK();
+(function importFromHash() {
+  try {
+    const h = location.hash || '';
+    if (h.indexOf('#r=') !== 0) return;
+    const en = dec(h.slice(3));
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (x) {}
+    if (!en) { S.msg = 'El enlace no tiene un resultado válido.'; S.screen = 'rank'; return; }
+    if (!has(en)) { RK.push(en); saveRK(); S.msg = 'Se agregó el resultado de ' + en.n + ' al ranking.'; }
+    else S.msg = 'El resultado de ' + en.n + ' ya estaba en el ranking.';
+    S.rtab = en.v; S.hl = en.d; S.screen = 'rank';
+  } catch (err) {}
+})();
+render();
+</script>
+
+</body>
+</html>
