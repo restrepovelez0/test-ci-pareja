@@ -1,23 +1,23 @@
-// POST /api/upload  (cuerpo: la imagen ya comprimida en el navegador) → { url }
+// POST /api/upload  (cuerpo: una foto ya comprimida en el navegador o un audio de receta) → { url }
 import { saveImage, localImage, blobReady } from "../lib/blob.js";
 import { unauthorized, json } from "../lib/auth.js";
 
 const MAX = 4 * 1024 * 1024; // Vercel acepta hasta ~4,5 MB por petición
-const TYPES = ["image/jpeg", "image/png", "image/webp"];
+const TYPES = ["image/jpeg", "image/png", "image/webp", "audio/webm", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/aac", "audio/x-m4a", "audio/m4a", "audio/wav"];
 
 export async function POST(request) {
   const denied = unauthorized(request);
   if (denied) return denied;
   const type = (request.headers.get("content-type") || "").split(";")[0].trim();
-  if (!TYPES.includes(type)) return json({ error: "Solo se aceptan fotos JPG, PNG o WebP" }, 415);
+  if (!TYPES.includes(type)) return json({ error: "Solo se aceptan fotos (JPG, PNG, WebP) o audios" }, 415);
   const buf = Buffer.from(await request.arrayBuffer());
   if (!buf.length) return json({ error: "La foto llegó vacía" }, 400);
-  if (buf.length > MAX) return json({ error: "La foto pesa más de 4 MB" }, 413);
+  if (buf.length > MAX) return json({ error: "El archivo pesa más de 4 MB" }, 413);
   try {
     const url = await saveImage(buf, type);
     return json({ url });
   } catch (err) {
-    return json({ error: err.message || "No se pudo guardar la foto" }, 500);
+    return json({ error: err.message || "No se pudo guardar el archivo" }, 500);
   }
 }
 

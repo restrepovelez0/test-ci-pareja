@@ -1,5 +1,5 @@
-// GET  /api/data  → { people, places, reviews, photos }
-// POST /api/data  → { op: "set" | "del", coll: "places" | "reviews" | "photos", id, data? }
+// GET  /api/data  → { people, places, reviews, photos, recipes, recipeReviews }
+// POST /api/data  → { op: "set" | "del", coll, id, data? }
 import { all, get, set, del, getFlag, setFlag, COLLECTIONS } from "../lib/store.js";
 import { removeBlob } from "../lib/blob.js";
 import { unauthorized, json, people } from "../lib/auth.js";
@@ -9,19 +9,25 @@ const ID = /^[A-Za-z0-9_-]{1,80}$/;
 const MAX_DOC = 20_000; // bytes por documento
 
 async function seedOnce() {
-  if (process.env.SEED === "off" || (await getFlag("seeded"))) return;
-  await setFlag("seeded");
-  const existing = await all("places");
-  if (existing.length) return;
-  for (const coll of COLLECTIONS) for (const doc of seed[coll]) await set(coll, doc.id, doc);
+  if (process.env.SEED === "off") return;
+  if (!(await getFlag("seeded"))) {
+    await setFlag("seeded");
+    if (!(await all("places")).length)
+      for (const coll of ["places", "reviews", "photos"]) for (const doc of seed[coll]) await set(coll, doc.id, doc);
+  }
+  if (!(await getFlag("seeded-recetas"))) {
+    await setFlag("seeded-recetas");
+    if (!(await all("recipes")).length)
+      for (const coll of ["recipes", "recipeReviews"]) for (const doc of seed[coll]) await set(coll, doc.id, doc);
+  }
 }
 
 export async function GET(request) {
   const denied = unauthorized(request);
   if (denied) return denied;
   await seedOnce();
-  const [places, reviews, photos] = await Promise.all(COLLECTIONS.map(all));
-  return json({ people: people(), places, reviews, photos });
+  const [places, reviews, photos, recipes, recipeReviews] = await Promise.all(COLLECTIONS.map(all));
+  return json({ people: people(), places, reviews, photos, recipes, recipeReviews });
 }
 
 export async function POST(request) {
