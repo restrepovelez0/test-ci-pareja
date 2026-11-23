@@ -435,7 +435,8 @@ form.f{display:grid;gap:22px}
 .mpin.cafe{background:var(--eggshell);color:var(--ink);border-color:var(--ink)}
 .mpin.todo{background:var(--eggshell);color:var(--ink);border:2px dashed var(--ink)}
 .mpin:hover{transform:scale(1.15)}
-:root[data-mode="dark"] .leaflet-tile-pane{filter:saturate(.8)}
+/* Modo oscuro: el mismo mapa de OpenStreetMap, invertido y suavizado */
+:root[data-mode="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.55)}
 
 /* Selector de ubicación en el formulario */
 .pick-map{height:220px;border-radius:12px;overflow:hidden;background:var(--taupe);margin-top:8px}
@@ -793,9 +794,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",e=>{if(!s
 
 /* ---------- Mapa (Leaflet + OpenStreetMap) ---------- */
 function tileLayer(){
-  return isDark()
-    ?L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'})
-    :L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'});
+  return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'});
 }
 function setTiles(){
   if(typeof L==="undefined")return;
